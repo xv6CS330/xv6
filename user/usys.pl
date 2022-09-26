@@ -42,3 +42,4 @@ entry("yield");
 entry("getpa");
 
 entry("waitpid");
+# entry("ps");

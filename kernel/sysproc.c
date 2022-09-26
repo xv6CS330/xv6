@@ -98,6 +98,12 @@ sys_uptime(void)
 
 //---------------Assignment 1(b) -------------------
 uint64
+sys_getppid(void)
+{
+  return getppid();
+}
+
+uint64
 sys_yield(void)
 {
   yield();
@@ -127,3 +133,9 @@ sys_waitpid(void)
   
   return waitpid(pid, p);
 }
+
+// uint64
+// sys_ps(void)
+// {
+
+// }

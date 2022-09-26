@@ -657,10 +657,10 @@ procdump(void)
 
 
 //------------------Assignment 1(b)-------------------
-uint64
-sys_getppid(void)
+int
+getppid(void)
 {
-  uint64 ppid;
+  int ppid;
   struct proc* p = myproc();
 
   acquire(&wait_lock);
@@ -736,3 +736,55 @@ waitpid(int givenPid, uint64 addr)
     sleep(p, &wait_lock);  //DOC: wait-sleep
   }
 }
+
+// int ps(void){
+
+//   static char *states[] = {
+//   [UNUSED]    "unused",
+//   [SLEEPING]  "sleep ",
+//   [RUNNABLE]  "runble",
+//   [RUNNING]   "run   ",
+//   [ZOMBIE]    "zombie"
+//   };
+//   struct proc *p;
+//   char *state;
+
+//   printf("\n");
+//   for(p = proc; p < &proc[NPROC]; p++){
+//     if(p->state == UNUSED)
+//       continue;
+//     if(p->state >= 0 && p->state < NELEM(states) && states[p->state])
+//       state = states[p->state];
+//     else
+//       state = "???";
+//     printf("%d %s %s", p->pid, state, p->name);
+//     printf("\n");
+//   }
+
+// }
+
+// void
+// procdump(void)
+// {
+//   static char *states[] = {
+//   [UNUSED]    "unused",
+//   [SLEEPING]  "sleep ",
+//   [RUNNABLE]  "runble",
+//   [RUNNING]   "run   ",
+//   [ZOMBIE]    "zombie"
+//   };
+//   struct proc *p;
+//   char *state;
+
+//   printf("\n");
+//   for(p = proc; p < &proc[NPROC]; p++){
+//     if(p->state == UNUSED)
+//       continue;
+//     if(p->state >= 0 && p->state < NELEM(states) && states[p->state])
+//       state = states[p->state];
+//     else
+//       state = "???";
+//     printf("%d %s %s", p->pid, state, p->name);
+//     printf("\n");
+//   }
+// }
