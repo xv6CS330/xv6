@@ -27,7 +27,7 @@ int uptime(void);
 int getppid(void);
 int yield(void);
 int getpa(int*);
-
+int forkf(int*);
 int waitpid(int, int*);
 
 // ulib.c
