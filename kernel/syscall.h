@@ -27,4 +27,4 @@
 #define SYS_getpa 24
 
 #define SYS_waitpid 26
-// #define SYS_ps 27
+#define SYS_ps 27
