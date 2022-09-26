@@ -234,6 +234,10 @@ userinit(void)
   
   // allocate one user page and copy init's instructions
   // and data into it.
+  acquire(&tickslock);
+  p->ctime = ticks;
+  release(&tickslock);
+
   uvminit(p->pagetable, initcode, sizeof(initcode));
   p->sz = PGSIZE;
 
@@ -245,6 +249,10 @@ userinit(void)
   p->cwd = namei("/");
 
   p->state = RUNNABLE;
+
+  acquire(&tickslock);
+  p->stime = ticks;
+  release(&tickslock);
 
   release(&p->lock);
 }
@@ -284,11 +292,17 @@ fork(void)
   }
 
   // Copy user memory from parent to child.
+  
   if(uvmcopy(p->pagetable, np->pagetable, p->sz) < 0){
     freeproc(np);
     release(&np->lock);
     return -1;
   }
+
+  acquire(&tickslock);
+  np->ctime = ticks;
+  release(&tickslock);
+
   np->sz = p->sz;
 
   // copy saved user registers.
@@ -372,6 +386,10 @@ exit(int status)
 
   p->xstate = status;
   p->state = ZOMBIE;
+
+  acquire(&tickslock);
+  p->etime = ticks;
+  release(&tickslock);
 
   release(&wait_lock);
 
@@ -519,6 +537,11 @@ forkret(void)
     // regular process (e.g., because it calls sleep), and thus cannot
     // be run from main().
     first = 0;
+
+    acquire(&tickslock);
+    myproc()->stime = ticks;
+    release(&tickslock);
+
     fsinit(ROOTDEV);
   }
 
@@ -589,6 +612,9 @@ kill(int pid)
       if(p->state == SLEEPING){
         // Wake process from sleep().
         p->state = RUNNABLE;
+        acquire(&tickslock);
+        p->etime = ticks;
+        release(&tickslock);
       }
       release(&p->lock);
       return 0;
@@ -659,10 +685,10 @@ procdump(void)
 
 
 //------------------Assignment 1(b)-------------------
-uint64
-sys_getppid(void)
+int
+getppid(void)
 {
-  uint64 ppid;
+  int ppid;
   struct proc* p = myproc();
 
   acquire(&wait_lock);
@@ -738,3 +764,71 @@ waitpid(int givenPid, uint64 addr)
     sleep(p, &wait_lock);  //DOC: wait-sleep
   }
 }
+
+void ps(void){
+
+  static char *states[] = {
+  [UNUSED]    "unused",
+  [SLEEPING]  "sleep ",
+  [RUNNABLE]  "runble",
+  [RUNNING]   "run   ",
+  [ZOMBIE]    "zombie"
+  };
+  struct proc *p;
+  char *state;
+
+  int etime=0;
+
+  printf("\n");
+  for(p = proc; p < &proc[NPROC]; p++){
+    acquire(&p->lock);
+
+    if(p->state == UNUSED)
+      continue;
+    if(p->state >= 0 && p->state < NELEM(states) && states[p->state])
+      state = states[p->state];
+    else
+      state = "???";
+    
+    if(p->state == 5){
+      etime = p->etime;
+    }
+    else{
+      acquire(&tickslock);
+      p->etime = ticks-p->stime;
+      release(&tickslock);
+    }
+
+    release(&p->lock);
+
+    printf("pid=%d, ppid=%d, state=%s, cmd=%s, ctime=%d, stime=%d, etime=%d, size=%d", p->pid, getppid(), state, p->name, p->ctime, p->stime, etime, p->sz);
+    printf("\n");
+  }
+  return;
+}
+
+// void
+// procdump(void)
+// {
+//   static char *states[] = {
+//   [UNUSED]    "unused",
+//   [SLEEPING]  "sleep ",
+//   [RUNNABLE]  "runble",
+//   [RUNNING]   "run   ",
+//   [ZOMBIE]    "zombie"
+//   };
+//   struct proc *p;
+//   char *state;
+
+//   printf("\n");
+//   for(p = proc; p < &proc[NPROC]; p++){
+//     if(p->state == UNUSED)
+//       continue;
+//     if(p->state >= 0 && p->state < NELEM(states) && states[p->state])
+//       state = states[p->state];
+//     else
+//       state = "???";
+//     printf("%d %s %s", p->pid, state, p->name);
+//     printf("\n");
+//   }
+// }

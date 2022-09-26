@@ -4,6 +4,7 @@
 
 int main(){
     
+    ps();
     // -----------waitpid() test function -----------------
     // int pid = fork();
     // int* ptr = (int*)malloc(sizeof(int));

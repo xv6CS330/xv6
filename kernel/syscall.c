@@ -111,6 +111,7 @@ extern uint64 sys_yield(void);
 extern uint64 sys_getpa(void);
 
 extern uint64 sys_waitpid(void);
+extern uint64 sys_ps(void);
 
 
 static uint64 (*syscalls[])(void) = {
@@ -142,6 +143,7 @@ static uint64 (*syscalls[])(void) = {
 [SYS_getpa] sys_getpa,
 
 [SYS_waitpid] sys_waitpid,
+[SYS_ps] sys_ps
 };
 
 void
