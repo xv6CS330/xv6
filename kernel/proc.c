@@ -654,3 +654,85 @@ procdump(void)
     printf("\n");
   }
 }
+
+
+//------------------Assignment 1(b)-------------------
+uint64
+sys_getppid(void)
+{
+  uint64 ppid;
+  struct proc* p = myproc();
+
+  acquire(&wait_lock);
+  struct proc* par = p->parent;
+
+
+  int killed = 0;
+  acquire(&par->lock);
+  killed = par->killed;
+  release(&par->lock);
+
+
+  if(killed!=0){
+    release(&wait_lock);
+    return -1;
+  }
+
+  acquire(&par->lock);
+  ppid = par->pid;
+  release(&par->lock);
+
+  release(&wait_lock);
+
+  return ppid;
+}
+
+
+int
+waitpid(int givenPid, uint64 addr)
+{
+  struct proc *np;
+  int havekids, pid;
+  struct proc *p = myproc();
+
+  acquire(&wait_lock);
+
+  for(;;){
+    // Scan through table looking for exited children.
+    havekids = 0;
+    for(np = proc; np < &proc[NPROC]; np++){
+      acquire(&np->lock);
+      if(np->parent == p && (givenPid == -1 || givenPid == np->pid)){
+        // make sure the child isn't still in exit() or swtch().
+        // acquire(&np->lock);
+
+        havekids = 1;
+        if(np->state == ZOMBIE){
+          // Found one.
+          pid = np->pid;
+          if(addr != 0 && copyout(p->pagetable, addr, (char *)&np->xstate,
+                                  sizeof(np->xstate)) < 0) {
+            release(&np->lock);
+            release(&wait_lock);
+            return -1;
+          }
+          freeproc(np);
+          release(&np->lock);
+          release(&wait_lock);
+          return pid;
+        }
+        // release(&np->lock);
+      }
+      release(&np->lock);
+    }
+
+    // No point waiting if we don't have any children.
+    if(!havekids || p->killed){
+      release(&wait_lock);
+      return -1;
+    }
+    
+    // Wait for a child to exit.
+    sleep(p, &wait_lock);  //DOC: wait-sleep
+  }
+}

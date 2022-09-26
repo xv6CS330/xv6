@@ -20,3 +20,10 @@
 #define SYS_link   19
 #define SYS_mkdir  20
 #define SYS_close  21
+
+//-----------------Assignment 1(b)------------------
+#define SYS_getppid 22
+#define SYS_yield 23
+#define SYS_getpa 24
+
+#define SYS_waitpid 26

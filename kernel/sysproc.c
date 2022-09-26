@@ -95,3 +95,35 @@ sys_uptime(void)
   release(&tickslock);
   return xticks;
 }
+
+//---------------Assignment 1(b) -------------------
+uint64
+sys_yield(void)
+{
+  yield();
+  return 0;
+}
+
+uint64
+sys_getpa(void){
+  struct proc* p = myproc();
+  uint64 va;
+  if(argaddr(0, &va) < 0)
+    return -1;
+  return walkaddr(p->pagetable, va) + (va &(PGSIZE-1));
+}
+
+uint64
+sys_waitpid(void)
+{
+  int pid;
+  uint64 p;
+
+  if(argint(0, &pid) < 0)
+    return -1;
+  
+  if(argaddr(0, &p) < 0)
+    return -1;
+  
+  return waitpid(pid, p);
+}

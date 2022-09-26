@@ -36,3 +36,9 @@ entry("getpid");
 entry("sbrk");
 entry("sleep");
 entry("uptime");
+#----------------------------Assignment 1(b)---------------------------
+entry("getppid");
+entry("yield");
+entry("getpa");
+
+entry("waitpid");
