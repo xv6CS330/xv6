@@ -610,6 +610,9 @@ kill(int pid)
       if(p->state == SLEEPING){
         // Wake process from sleep().
         p->state = RUNNABLE;
+        acquire(&tickslock);
+        p->etime = ticks;
+        release(&tickslock);
       }
       release(&p->lock);
       return 0;
@@ -760,7 +763,7 @@ waitpid(int givenPid, uint64 addr)
   }
 }
 
-int ps(void){
+void ps(void){
 
   static char *states[] = {
   [UNUSED]    "unused",
@@ -771,6 +774,8 @@ int ps(void){
   };
   struct proc *p;
   char *state;
+
+  int etime=0;
 
   printf("\n");
   for(p = proc; p < &proc[NPROC]; p++){
@@ -783,12 +788,21 @@ int ps(void){
     else
       state = "???";
     
+    if(p->state == 5){
+      etime = p->etime;
+    }
+    else{
+      acquire(&tickslock);
+      p->etime = ticks-p->stime;
+      release(&tickslock);
+    }
+
     release(&p->lock);
 
-    printf("%d, %d, %s %s", p->pid, getppid(), state, p->name);
+    printf("pid=%d, ppid=%d, state=%s, cmd=%s, ctime=%d, stime=%d, etime=%d, size=%d", p->pid, getppid(), state, p->name, p->ctime, p->stime, etime, p->sz);
     printf("\n");
   }
-
+  return;
 }
 
 // void

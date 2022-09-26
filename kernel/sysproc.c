@@ -137,5 +137,6 @@ sys_waitpid(void)
 uint64
 sys_ps(void)
 {
-
+  ps();
+  return 0;
 }
