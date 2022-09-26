@@ -4,6 +4,7 @@
 
 int main(){
     
+    ps();
     // -----------waitpid() test function -----------------
     // int pid = fork();
     // int* ptr = (int*)malloc(sizeof(int));
@@ -33,7 +34,7 @@ int main(){
     // printf("%p\n", getpa(&b));
 
     // ------getppid() test function -----------------
-    int* ptr = (int*)malloc(sizeof(int));
+    // int* ptr = (int*)malloc(sizeof(int));
     // printf("My Parent Pid: %d\n", getppid());
     // printf("Parent Pid: %d\n", getpid());
     // if(fork()==0){

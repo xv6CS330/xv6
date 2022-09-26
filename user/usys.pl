@@ -42,4 +42,4 @@ entry("yield");
 entry("getpa");
 entry("forkf");  #-----forkf()
 entry("waitpid");
-# entry("ps");
+entry("ps");
