@@ -136,7 +136,7 @@ static uint64 (*syscalls[])(void) = {
 [SYS_mkdir]   sys_mkdir,
 [SYS_close]   sys_close,
 
-
+//----------Assignment 1(b) ------------------
 [SYS_getppid] sys_getppid,
 [SYS_yield] sys_yield,
 [SYS_getpa] sys_getpa,

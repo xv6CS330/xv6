@@ -5,7 +5,9 @@
 #include "spinlock.h"
 #include "proc.h"
 #include "defs.h"
-
+/***************Assignment 1b*********/
+#include "procstat.h"
+/*************************************/
 struct cpu cpus[NCPU];
 
 struct proc proc[NPROC];
