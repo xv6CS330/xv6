@@ -132,6 +132,8 @@ UPROGS=\
 	$U/_grind\
 	$U/_wc\
 	$U/_zombie\
+	$U/_uptime\
+	$U/_forksleep\
 	$U/_pipeline\
 	$U/_sysCheck\
 
