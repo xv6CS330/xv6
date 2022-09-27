@@ -16,12 +16,12 @@ int main(int argc, char *argv[]){
 
     if(m<=0){
         printf("Error: Enter positive value of m\n");
-        exit(0);
+        exit(1);
     }
 
     if(n!=0 && n!=1){
         printf("Error: n should be 0 or 1\n");
-        exit(0);
+        exit(2);
     }
 
     int p = fork();
