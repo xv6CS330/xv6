@@ -472,6 +472,11 @@ scheduler(void)
         // to release its lock and then reacquire it
         // before jumping back to us.
         p->state = RUNNING;
+
+        acquire(&tickslock);
+        p->stime = ticks;
+        release(&tickslock);
+
         c->proc = p;
         swtch(&c->context, &p->context);
 
@@ -783,8 +788,10 @@ void ps(void){
   for(p = proc; p < &proc[NPROC]; p++){
     acquire(&p->lock);
 
-    if(p->state == UNUSED)
+    if(p->state == UNUSED){
+      release(&p->lock);
       continue;
+    }
     if(p->state >= 0 && p->state < NELEM(states) && states[p->state])
       state = states[p->state];
     else
@@ -795,40 +802,14 @@ void ps(void){
     }
     else{
       acquire(&tickslock);
-      p->etime = ticks-p->stime;
+      etime = ticks-p->stime;
       release(&tickslock);
     }
 
     release(&p->lock);
 
-    printf("pid=%d, ppid=%d, state=%s, cmd=%s, ctime=%d, stime=%d, etime=%d, size=%d", p->pid, getppid(), state, p->name, p->ctime, p->stime, etime, p->sz);
+    printf("pid=%d, ppid=%d, state=%s, cmd=%s, ctime=%d, stime=%d, etime=%d, size=%p", p->pid, getppid(), state, p->name, p->ctime, p->stime, etime, p->sz);
     printf("\n");
   }
   return;
 }
-
-// void
-// procdump(void)
-// {
-//   static char *states[] = {
-//   [UNUSED]    "unused",
-//   [SLEEPING]  "sleep ",
-//   [RUNNABLE]  "runble",
-//   [RUNNING]   "run   ",
-//   [ZOMBIE]    "zombie"
-//   };
-//   struct proc *p;
-//   char *state;
-
-//   printf("\n");
-//   for(p = proc; p < &proc[NPROC]; p++){
-//     if(p->state == UNUSED)
-//       continue;
-//     if(p->state >= 0 && p->state < NELEM(states) && states[p->state])
-//       state = states[p->state];
-//     else
-//       state = "???";
-//     printf("%d %s %s", p->pid, state, p->name);
-//     printf("\n");
-//   }
-// }

@@ -23,20 +23,20 @@ int main(int argc, char *argv[]){
     }
     int x = atoi(argv[2]);
 
-    while(n--){
+    for(int i=0; i<n; i++){
         int t = fork();
-        if(n>1 && t==0){
+        if(t==0){
+            close(fd[1]);
             read(fd[0], &x, sizeof(int));
             close(fd[0]);
-            close(fd[1]);
             pipe(fd);
         }
         else{
+            close(fd[0]);
             int currPid = getpid();
             printf("%d: %d\n", getpid(), x+currPid);
             x += currPid;
             write(fd[1], &x, sizeof(int));
-            close(fd[0]);
             close(fd[1]);
             wait(ptr);
             break;
