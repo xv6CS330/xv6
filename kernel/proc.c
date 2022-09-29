@@ -813,3 +813,49 @@ void ps(void){
   }
   return;
 }
+
+
+
+void pinfo(void){
+
+  static char *states[] = {
+  [UNUSED]    "unused",
+  [SLEEPING]  "sleep ",
+  [RUNNABLE]  "runble",
+  [RUNNING]   "run   ",
+  [ZOMBIE]    "zombie"
+  };
+  struct proc *p;
+  char *state;
+
+  int etime=0;
+
+  printf("\n");
+  for(p = proc; p < &proc[NPROC]; p++){
+    acquire(&p->lock);
+
+    if(p->state == UNUSED){
+      release(&p->lock);
+      continue;
+    }
+    if(p->state >= 0 && p->state < NELEM(states) && states[p->state])
+      state = states[p->state];
+    else
+      state = "???";
+    
+    if(p->state == 5){
+      etime = p->etime;
+    }
+    else{
+      acquire(&tickslock);
+      etime = ticks-p->stime;
+      release(&tickslock);
+    }
+
+    release(&p->lock);
+
+    printf("pid=%d, ppid=%d, state=%s, cmd=%s, ctime=%d, stime=%d, etime=%d, size=%p", p->pid, getppid(), state, p->name, p->ctime, p->stime, etime, p->sz);
+    printf("\n");
+  }
+  return;
+}

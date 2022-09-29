@@ -47,7 +47,7 @@ forktest(void)
 
   print("fork test\n");
   3a:	00000517          	auipc	a0,0x0
-  3e:	3f650513          	addi	a0,a0,1014 # 430 <uptime+0xe>
+  3e:	41e50513          	addi	a0,a0,1054 # 458 <ps+0xe>
   42:	00000097          	auipc	ra,0x0
   46:	fbe080e7          	jalr	-66(ra) # 0 <print>
 
@@ -57,9 +57,8 @@ forktest(void)
     pid = fork();
   50:	00000097          	auipc	ra,0x0
   54:	332080e7          	jalr	818(ra) # 382 <fork>
-    if(pid < 0)
+    if(pid < 0)break;
   58:	02054763          	bltz	a0,86 <forktest+0x58>
-      break;
     if(pid == 0)
   5c:	c10d                	beqz	a0,7e <forktest+0x50>
   for(n=0; n<N; n++){
@@ -71,7 +70,7 @@ forktest(void)
   if(n == N){
     print("fork claimed to work N times!\n");
   64:	00000517          	auipc	a0,0x0
-  68:	3dc50513          	addi	a0,a0,988 # 440 <uptime+0x1e>
+  68:	40450513          	addi	a0,a0,1028 # 468 <ps+0x1e>
   6c:	00000097          	auipc	ra,0x0
   70:	f94080e7          	jalr	-108(ra) # 0 <print>
     exit(1);
@@ -113,7 +112,7 @@ forktest(void)
 
   print("fork test OK\n");
   b4:	00000517          	auipc	a0,0x0
-  b8:	3dc50513          	addi	a0,a0,988 # 490 <uptime+0x6e>
+  b8:	40450513          	addi	a0,a0,1028 # 4b8 <ps+0x6e>
   bc:	00000097          	auipc	ra,0x0
   c0:	f44080e7          	jalr	-188(ra) # 0 <print>
 }
@@ -125,7 +124,7 @@ forktest(void)
   ce:	8082                	ret
       print("wait stopped early\n");
   d0:	00000517          	auipc	a0,0x0
-  d4:	39050513          	addi	a0,a0,912 # 460 <uptime+0x3e>
+  d4:	3b850513          	addi	a0,a0,952 # 488 <ps+0x3e>
   d8:	00000097          	auipc	ra,0x0
   dc:	f28080e7          	jalr	-216(ra) # 0 <print>
       exit(1);
@@ -134,7 +133,7 @@ forktest(void)
   e6:	2a8080e7          	jalr	680(ra) # 38a <exit>
     print("wait got too many\n");
   ea:	00000517          	auipc	a0,0x0
-  ee:	38e50513          	addi	a0,a0,910 # 478 <uptime+0x56>
+  ee:	3b650513          	addi	a0,a0,950 # 4a0 <ps+0x56>
   f2:	00000097          	auipc	ra,0x0
   f6:	f0e080e7          	jalr	-242(ra) # 0 <print>
     exit(1);
@@ -789,3 +788,53 @@ uptime:
  424:	00000073          	ecall
  ret
  428:	8082                	ret
+
+000000000000042a <getppid>:
+.global getppid
+getppid:
+ li a7, SYS_getppid
+ 42a:	48d9                	li	a7,22
+ ecall
+ 42c:	00000073          	ecall
+ ret
+ 430:	8082                	ret
+
+0000000000000432 <yield>:
+.global yield
+yield:
+ li a7, SYS_yield
+ 432:	48dd                	li	a7,23
+ ecall
+ 434:	00000073          	ecall
+ ret
+ 438:	8082                	ret
+
+000000000000043a <getpa>:
+.global getpa
+getpa:
+ li a7, SYS_getpa
+ 43a:	48e1                	li	a7,24
+ ecall
+ 43c:	00000073          	ecall
+ ret
+ 440:	8082                	ret
+
+0000000000000442 <waitpid>:
+.global waitpid
+waitpid:
+ li a7, SYS_waitpid
+ 442:	48e9                	li	a7,26
+ ecall
+ 444:	00000073          	ecall
+ ret
+ 448:	8082                	ret
+
+000000000000044a <ps>:
+.global ps
+ps:
+ li a7, SYS_ps
+ 44a:	48ed                	li	a7,27
+ ecall
+ 44c:	00000073          	ecall
+ ret
+ 450:	8082                	ret
