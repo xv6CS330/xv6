@@ -15,7 +15,7 @@ int main(int argc, char *argv[]){
 
     int n = atoi(argv[1]);
     if(n<2 || n>100){
-        printf("Error: n value should be between 2 to 100");
+        printf("Error: n value should be between 2 to 100\n");
         exit(2);
     }
 
