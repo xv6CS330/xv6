@@ -6,6 +6,8 @@
 #include "proc.h"
 #include "defs.h"
 
+#include "procstat.h"
+
 struct cpu cpus[NCPU];
 
 struct proc proc[NPROC];
@@ -470,6 +472,11 @@ scheduler(void)
         // to release its lock and then reacquire it
         // before jumping back to us.
         p->state = RUNNING;
+
+        acquire(&tickslock);
+        p->stime = ticks;
+        release(&tickslock);
+
         c->proc = p;
         swtch(&c->context, &p->context);
 
@@ -610,9 +617,6 @@ kill(int pid)
       if(p->state == SLEEPING){
         // Wake process from sleep().
         p->state = RUNNABLE;
-        acquire(&tickslock);
-        p->etime = ticks;
-        release(&tickslock);
       }
       release(&p->lock);
       return 0;
@@ -713,6 +717,61 @@ getppid(void)
   return ppid;
 }
 
+int
+forkf(uint64 faddr)
+{
+  int i, pid;
+  struct proc *np;
+  struct proc *p = myproc();
+
+  // Allocate process.
+  if((np = allocproc()) == 0){
+    return -1;
+  }
+
+  // Copy user memory from parent to child.
+  
+  if(uvmcopy(p->pagetable, np->pagetable, p->sz) < 0){
+    freeproc(np);
+    release(&np->lock);
+    return -1;
+  }
+
+  acquire(&tickslock);
+  np->ctime = ticks;
+  release(&tickslock);
+
+  np->sz = p->sz;
+
+  // copy saved user registers.
+  *(np->trapframe) = *(p->trapframe);
+
+  // Cause fork to return 0 in the child.
+  np->trapframe->a0 = 0;
+  np->trapframe->epc = faddr;
+
+  // increment reference counts on open file descriptors.
+  for(i = 0; i < NOFILE; i++)
+    if(p->ofile[i])
+      np->ofile[i] = filedup(p->ofile[i]);
+  np->cwd = idup(p->cwd);
+
+  safestrcpy(np->name, p->name, sizeof(p->name));
+
+  pid = np->pid;
+
+  release(&np->lock);
+
+  acquire(&wait_lock);
+  np->parent = p;
+  release(&wait_lock);
+
+  acquire(&np->lock);
+  np->state = RUNNABLE;
+  release(&np->lock);
+
+  return pid;
+}
 
 int
 waitpid(int givenPid, uint64 addr)
@@ -776,57 +835,157 @@ void ps(void){
   char *state;
 
   int etime=0;
+  int ppid,pid;
 
   printf("\n");
   for(p = proc; p < &proc[NPROC]; p++){
     acquire(&p->lock);
 
-    if(p->state == UNUSED)
+    if(p->state == UNUSED){
+      release(&p->lock);
       continue;
+    }
     if(p->state >= 0 && p->state < NELEM(states) && states[p->state])
       state = states[p->state];
     else
       state = "???";
     
     if(p->state == 5){
-      etime = p->etime;
+      etime = p->etime-p->stime;
     }
     else{
       acquire(&tickslock);
-      p->etime = ticks-p->stime;
+      etime = ticks-p->stime;
       release(&tickslock);
     }
-
+    
+    pid = p->pid;
     release(&p->lock);
 
-    printf("pid=%d, ppid=%d, state=%s, cmd=%s, ctime=%d, stime=%d, etime=%d, size=%d", p->pid, getppid(), state, p->name, p->ctime, p->stime, etime, p->sz);
+    
+    //Parent PID
+    acquire(&wait_lock);
+    struct proc* par = p->parent;
+
+    int killed = 0;
+    
+    if(p->pid==1){
+      ppid = -1;
+    }
+    else{
+      acquire(&par->lock);
+      killed = par->killed;
+      release(&par->lock);
+
+      if(killed!=0){
+        ppid = -1;
+      }
+      else{
+        acquire(&par->lock);
+        ppid = par->pid;
+        release(&par->lock);
+      }
+    }
+    release(&wait_lock);
+    //Parent PID
+
+
+    printf("pid=%d, ppid=%d, state=%s, cmd=%s, ctime=%d, stime=%d, etime=%d, size=%p", pid, ppid, state, p->name, p->ctime, p->stime, etime, p->sz);
+    
+
     printf("\n");
   }
   return;
 }
 
-// void
-// procdump(void)
-// {
-//   static char *states[] = {
-//   [UNUSED]    "unused",
-//   [SLEEPING]  "sleep ",
-//   [RUNNABLE]  "runble",
-//   [RUNNING]   "run   ",
-//   [ZOMBIE]    "zombie"
-//   };
-//   struct proc *p;
-//   char *state;
 
-//   printf("\n");
-//   for(p = proc; p < &proc[NPROC]; p++){
-//     if(p->state == UNUSED)
-//       continue;
-//     if(p->state >= 0 && p->state < NELEM(states) && states[p->state])
-//       state = states[p->state];
-//     else
-//       state = "???";
-//     printf("%d %s %s", p->pid, state, p->name);
-//     printf("\n");
-//   }
-// }
+int
+pinfo(int procid, struct procstat* pstat){
+
+  if(procid==-1){
+    struct proc* pc = myproc();
+    acquire(&pc->lock);
+    procid = pc->pid;
+    release(&pc->lock);
+  }
+
+  static char *states[] = {
+  [UNUSED]    "unused",
+  [SLEEPING]  "sleep ",
+  [RUNNABLE]  "runble",
+  [RUNNING]   "run   ",
+  [ZOMBIE]    "zombie"
+  };
+
+  struct proc *p;
+  char *state;
+
+  int etime=0;
+  int ppid, pid;
+
+  printf("\n");
+  for(p = proc; p < &proc[NPROC]; p++){
+    acquire(&p->lock);
+
+    if(p->state == UNUSED || procid != p->pid){
+      release(&p->lock);
+      continue;
+    }
+    if(p->state >= 0 && p->state < NELEM(states) && states[p->state])
+      state = states[p->state];
+    else
+      state = "???";
+    
+    if(p->state == ZOMBIE){
+      etime = p->etime-p->stime;
+    }
+    else{
+      acquire(&tickslock);
+      etime = ticks-p->stime;
+      release(&tickslock);
+    }
+    // pid = p->pid;
+    release(&p->lock);
+    // printf("PId:%d",pid);
+
+    //Parent PID
+    acquire(&wait_lock);
+    struct proc* par = p->parent;
+
+    int killed = 0;
+    
+    if(p->pid==1){
+      ppid = -1;
+    }
+    else{
+      acquire(&par->lock);
+      killed = par->killed;
+      release(&par->lock);
+
+      if(killed!=0){
+        ppid = -1;
+      }
+      else{
+        acquire(&par->lock);
+        ppid = par->pid;
+        release(&par->lock);
+      }
+    }
+    release(&wait_lock);
+    
+
+
+    struct proc* pc = myproc();
+    if(copyout(pc->pagetable, (uint64)&(pstat->pid), (char*)&procid, sizeof(pid))<0)return -1;
+    if(copyout(pc->pagetable, (uint64)&(pstat->ppid), (char*)&ppid, sizeof(ppid))<0)return -1;
+    if(copyout(pc->pagetable, (uint64)(pstat->state), state, sizeof(p->state))<0)return -1;
+    if(copyout(pc->pagetable, (uint64)(pstat->command),(p->name), sizeof(p->name))<0)return -1;
+    if(copyout(pc->pagetable, (uint64)&(pstat->ctime),(char*)&(p->ctime), sizeof(p->ctime))<0)return -1;
+    if(copyout(pc->pagetable, (uint64)&(pstat->stime),(char*)&(p->stime), sizeof(p->stime))<0)return -1;
+    if(copyout(pc->pagetable, (uint64)&(pstat->etime),(char*)&(etime), sizeof(p->etime))<0)return -1;
+    if(copyout(pc->pagetable, (uint64)&(pstat->size),(char*)&(p->sz), sizeof(p->sz))<0)return -1;
+    break;
+  }
+
+  return 0;
+}

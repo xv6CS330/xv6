@@ -17,26 +17,29 @@ int main(int argc, char *argv[]){
     }
 
     int n = atoi(argv[1]);
-    if(n<=0){
+    if(argv[1][0]=='-' || n<=0){
         printf("n must be a positive integer\n");
         exit(0);
     }
-    int x = atoi(argv[2]);
 
-    while(n--){
+    int x;
+    if(argv[2][0]=='-')x = -1*atoi(argv[2]+1);
+    else x = atoi(argv[2]);
+
+    for(int i=0; i<n; i++){
         int t = fork();
-        if(n>1 && t==0){
+        if(t==0){
+            close(fd[1]);
             read(fd[0], &x, sizeof(int));
             close(fd[0]);
-            close(fd[1]);
             pipe(fd);
         }
         else{
+            close(fd[0]);
             int currPid = getpid();
             printf("%d: %d\n", getpid(), x+currPid);
             x += currPid;
             write(fd[1], &x, sizeof(int));
-            close(fd[0]);
             close(fd[1]);
             wait(ptr);
             break;
