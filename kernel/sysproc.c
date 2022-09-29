@@ -121,11 +121,8 @@ sys_getpa(void){
 
 uint64
 sys_forkf(void){
-  struct proc* p = myproc();
-  uint64 va;
-  if(argaddr(0, &va) < 0)
-    return -1;
-  return walkaddr(p->pagetable, va) + (va &(PGSIZE-1));
+  
+  return fork();
 }
 
 uint64
