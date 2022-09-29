@@ -162,13 +162,5 @@ sys_pinfo(void)
   if(argaddr(1, &p) < 0)
     return -1;
   
-  // struct procstat *pstat;
-  // pstat = (struct procstat *)p;
-  // printf("%p\n", pstat);
   return pinfo(pid, (struct procstat*)p);
-  
-  // printf("pid=%d, ppid=%d, state=%s, cmd=%s, ctime=%d, stime=%d, etime=%d, size=%p\n",
-  //        pstat->pid, pstat->ppid, pstat->state, pstat->command, pstat->ctime, pstat->stime, pstat->etime, pstat->size);
-  // p = (uint64)(pstat);
-  // return 0;
 }

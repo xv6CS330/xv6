@@ -28,7 +28,7 @@ int uptime(void);
 int getppid(void);
 int yield(void);
 int getpa(int*);
-int forkf(int (*)(void));
+int forkf(int(*)(void));
 int waitpid(int, int*);
 void ps(void);
 int pinfo(int, struct procstat* );
