@@ -14,12 +14,12 @@ int main(int argc, char *argv[]){
     int m = atoi(argv[1]);
     int n = atoi(argv[2]);
 
-    if(m<=0){
+    if(argv[1][0]=='-' || m<=0){
         printf("Error: Enter positive value of m\n");
         exit(1);
     }
 
-    if(n!=0 && n!=1){
+    if(strlen(argv[2])!=1 || (argv[2][0]!='0' && argv[2][0]!='1')){
         printf("Error: n should be 0 or 1\n");
         exit(2);
     }

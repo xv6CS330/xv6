@@ -5,9 +5,9 @@
 #include "spinlock.h"
 #include "proc.h"
 #include "defs.h"
-/***************Assignment 1b*********/
+
 #include "procstat.h"
-/*************************************/
+
 struct cpu cpus[NCPU];
 
 struct proc proc[NPROC];
@@ -122,6 +122,10 @@ found:
   p->pid = allocpid();
   p->state = USED;
 
+  acquire(&tickslock);
+  p->ctime = ticks;
+  release(&tickslock);
+
   // Allocate a trapframe page.
   if((p->trapframe = (struct trapframe *)kalloc()) == 0){
     freeproc(p);
@@ -234,9 +238,6 @@ userinit(void)
   
   // allocate one user page and copy init's instructions
   // and data into it.
-  acquire(&tickslock);
-  p->ctime = ticks;
-  release(&tickslock);
 
   uvminit(p->pagetable, initcode, sizeof(initcode));
   p->sz = PGSIZE;
@@ -250,9 +251,9 @@ userinit(void)
 
   p->state = RUNNABLE;
 
-  acquire(&tickslock);
-  p->stime = ticks;
-  release(&tickslock);
+  // acquire(&tickslock);
+  // p->stime = ticks;
+  // release(&tickslock);
 
   release(&p->lock);
 }
@@ -298,10 +299,6 @@ fork(void)
     release(&np->lock);
     return -1;
   }
-
-  acquire(&tickslock);
-  np->ctime = ticks;
-  release(&tickslock);
 
   np->sz = p->sz;
 
@@ -473,10 +470,6 @@ scheduler(void)
         // before jumping back to us.
         p->state = RUNNING;
 
-        acquire(&tickslock);
-        p->stime = ticks;
-        release(&tickslock);
-
         c->proc = p;
         swtch(&c->context, &p->context);
 
@@ -542,13 +535,12 @@ forkret(void)
     // regular process (e.g., because it calls sleep), and thus cannot
     // be run from main().
     first = 0;
-
-    acquire(&tickslock);
-    myproc()->stime = ticks;
-    release(&tickslock);
-
     fsinit(ROOTDEV);
   }
+
+  acquire(&tickslock);
+  myproc()->stime = ticks;
+  release(&tickslock);
 
   usertrapret();
 }
@@ -617,9 +609,6 @@ kill(int pid)
       if(p->state == SLEEPING){
         // Wake process from sleep().
         p->state = RUNNABLE;
-        acquire(&tickslock);
-        p->etime = ticks;
-        release(&tickslock);
       }
       release(&p->lock);
       return 0;
@@ -696,20 +685,12 @@ getppid(void)
   int ppid;
   struct proc* p = myproc();
 
+  acquire(&p->lock);
+  if(p->pid==1)return -1;
+  release(&p->lock);
+
   acquire(&wait_lock);
   struct proc* par = p->parent;
-
-
-  int killed = 0;
-  acquire(&par->lock);
-  killed = par->killed;
-  release(&par->lock);
-
-
-  if(killed!=0){
-    release(&wait_lock);
-    return -1;
-  }
 
   acquire(&par->lock);
   ppid = par->pid;
@@ -720,6 +701,58 @@ getppid(void)
   return ppid;
 }
 
+int
+forkf(uint64 faddr)
+{
+  int i, pid;
+  struct proc *np;
+  struct proc *p = myproc();
+
+  // Allocate process.
+  if((np = allocproc()) == 0){
+    return -1;
+  }
+
+  // Copy user memory from parent to child.
+  
+  if(uvmcopy(p->pagetable, np->pagetable, p->sz) < 0){
+    freeproc(np);
+    release(&np->lock);
+    return -1;
+  }
+
+
+  np->sz = p->sz;
+
+  // copy saved user registers.
+  *(np->trapframe) = *(p->trapframe);
+
+  // Cause fork to return 0 in the child.
+  np->trapframe->a0 = 0;
+  np->trapframe->epc = faddr;
+
+  // increment reference counts on open file descriptors.
+  for(i = 0; i < NOFILE; i++)
+    if(p->ofile[i])
+      np->ofile[i] = filedup(p->ofile[i]);
+  np->cwd = idup(p->cwd);
+
+  safestrcpy(np->name, p->name, sizeof(p->name));
+
+  pid = np->pid;
+
+  release(&np->lock);
+
+  acquire(&wait_lock);
+  np->parent = p;
+  release(&wait_lock);
+
+  acquire(&np->lock);
+  np->state = RUNNABLE;
+  release(&np->lock);
+
+  return pid;
+}
 
 int
 waitpid(int givenPid, uint64 addr)
@@ -734,10 +767,9 @@ waitpid(int givenPid, uint64 addr)
     // Scan through table looking for exited children.
     havekids = 0;
     for(np = proc; np < &proc[NPROC]; np++){
-      acquire(&np->lock);
       if(np->parent == p && (givenPid == -1 || givenPid == np->pid)){
         // make sure the child isn't still in exit() or swtch().
-        // acquire(&np->lock);
+        acquire(&np->lock);
 
         havekids = 1;
         if(np->state == ZOMBIE){
@@ -754,9 +786,8 @@ waitpid(int givenPid, uint64 addr)
           release(&wait_lock);
           return pid;
         }
-        // release(&np->lock);
+        release(&np->lock);
       }
-      release(&np->lock);
     }
 
     // No point waiting if we don't have any children.
@@ -783,6 +814,7 @@ void ps(void){
   char *state;
 
   int etime=0;
+  int ppid,pid;
 
   printf("\n");
   for(p = proc; p < &proc[NPROC]; p++){
@@ -798,25 +830,52 @@ void ps(void){
       state = "???";
     
     if(p->state == 5){
-      etime = p->etime;
+      etime = p->etime-p->stime;
     }
     else{
       acquire(&tickslock);
       etime = ticks-p->stime;
       release(&tickslock);
     }
-
+    
+    pid = p->pid;
     release(&p->lock);
 
-    printf("pid=%d, ppid=%d, state=%s, cmd=%s, ctime=%d, stime=%d, etime=%d, size=%p", p->pid, getppid(), state, p->name, p->ctime, p->stime, etime, p->sz);
+    
+    //Parent PID
+    acquire(&wait_lock);
+    struct proc* par = p->parent;
+    
+    if(pid==1){
+      ppid = -1;
+    }
+    else{
+      acquire(&par->lock);
+      ppid = par->pid;
+      release(&par->lock);
+    }
+    release(&wait_lock);
+    //Parent PID
+
+
+    printf("pid=%d, ppid=%d, state=%s, cmd=%s, ctime=%d, stime=%d, etime=%d, size=%p", pid, ppid, state, p->name, p->ctime, p->stime, etime, p->sz);
+    
+
     printf("\n");
   }
   return;
 }
 
 
+int
+pinfo(int procid, struct procstat* pstat){
 
-void pinfo(void){
+  if(procid==-1){
+    struct proc* pc = myproc();
+    acquire(&pc->lock);
+    procid = pc->pid;
+    release(&pc->lock);
+  }
 
   static char *states[] = {
   [UNUSED]    "unused",
@@ -825,16 +884,17 @@ void pinfo(void){
   [RUNNING]   "run   ",
   [ZOMBIE]    "zombie"
   };
+
   struct proc *p;
   char *state;
 
   int etime=0;
+  int ppid;
 
   printf("\n");
   for(p = proc; p < &proc[NPROC]; p++){
     acquire(&p->lock);
-
-    if(p->state == UNUSED){
+    if(p->state == UNUSED || procid != p->pid){
       release(&p->lock);
       continue;
     }
@@ -843,19 +903,45 @@ void pinfo(void){
     else
       state = "???";
     
-    if(p->state == 5){
-      etime = p->etime;
+    if(p->state == ZOMBIE){
+      etime = p->etime-p->stime;
     }
     else{
       acquire(&tickslock);
       etime = ticks-p->stime;
       release(&tickslock);
     }
-
+    // pid = p->pid;
     release(&p->lock);
+    // printf("PId:%d",pid);
 
-    printf("pid=%d, ppid=%d, state=%s, cmd=%s, ctime=%d, stime=%d, etime=%d, size=%p", p->pid, getppid(), state, p->name, p->ctime, p->stime, etime, p->sz);
-    printf("\n");
+    //Parent PID
+    acquire(&wait_lock);
+    struct proc* par = p->parent;
+
+    if(p->pid==1){
+      ppid = -1;
+    }
+    else{
+        acquire(&par->lock);
+        ppid = par->pid;
+        release(&par->lock);
+    }
+    release(&wait_lock);
+    
+
+
+    struct proc* pc = myproc();
+    if(copyout(pc->pagetable, (uint64)&(pstat->pid), (char*)&procid, sizeof(procid))<0)return -1;
+    if(copyout(pc->pagetable, (uint64)&(pstat->ppid), (char*)&ppid, sizeof(ppid))<0)return -1;
+    if(copyout(pc->pagetable, (uint64)(pstat->state), state, sizeof(p->state))<0)return -1;
+    if(copyout(pc->pagetable, (uint64)(pstat->command),(p->name), sizeof(p->name))<0)return -1;
+    if(copyout(pc->pagetable, (uint64)&(pstat->ctime),(char*)&(p->ctime), sizeof(p->ctime))<0)return -1;
+    if(copyout(pc->pagetable, (uint64)&(pstat->stime),(char*)&(p->stime), sizeof(p->stime))<0)return -1;
+    if(copyout(pc->pagetable, (uint64)&(pstat->etime),(char*)&(etime), sizeof(p->etime))<0)return -1;
+    if(copyout(pc->pagetable, (uint64)&(pstat->size),(char*)&(p->sz), sizeof(p->sz))<0)return -1;
+    break;
   }
-  return;
+
+  return 0;
 }
